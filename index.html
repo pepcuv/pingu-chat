@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingUchat - Privé, Veilig en Open Source</title>
+    <!-- CryptoJS voor veilige lokale client-side versleuteling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        :root {
+            --bg-deep: #050a12;
+            --bg-card: rgba(15, 28, 46, 0.85);
+            --bg-sidebar: #091322;
+            --ice-primary: #38bdf8;
+            --ice-glow: #7dd3fc;
+            --beak-orange: #f59e0b;
+            --text-snow: #f8fafc;
+            --text-frost: #94a3b8;
+            --border-ice: rgba(56, 189, 248, 0.15);
+        }
+
+        body { 
+            background: radial-gradient(circle at 50% 0%, #0d2847 0%, var(--bg-deep) 100%);
+            color: var(--text-snow); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            padding: 16px; 
+            overflow: hidden;
+        }
+
+        /* Modals & Kaarten */
+        .auth-card { 
+            background: var(--bg-card); 
+            backdrop-filter: blur(20px);
+            width: 100%; 
+            max-width: 440px; 
+            padding: 36px 30px; 
+            border-radius: 24px; 
+            box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 30px rgba(56, 189, 248, 0.15); 
+            border: 1px solid var(--border-ice);
+            text-align: center;
+        }
+        
+        .brand-logo { font-size: 56px; margin-bottom: 8px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.4)); }
+        .auth-card h2 { font-size: 28px; color: var(--text-snow); letter-spacing: -0.5px; }
+        .brand-highlight { color: var(--ice-primary); }
+        .auth-card p { color: var(--text-frost); font-size: 14px; margin: 8px 0 24px; }
+
+        .tabs { 
+            display: flex; 
+            margin-bottom: 24px; 
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 5px;
+            border: 1px solid var(--border-ice);
+        }
+
+        .tab-btn { 
+            flex: 1; 
+            padding: 11px; 
+            background: none; 
+            border: none; 
+            color: var(--text-frost); 
+            font-size: 14px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            border-radius: 9px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active { 
+            background-color: var(--ice-primary); 
+            color: #04101d; 
+            font-weight: 700;
+        }
+
+        .form-group { margin-bottom: 18px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; color: var(--text-frost); margin-bottom: 7px; font-weight: 500; }
+        .form-group input { 
+            width: 100%; 
+            padding: 13px 16px; 
+            background-color: rgba(4, 9, 16, 0.7); 
+            border: 1px solid var(--border-ice); 
+            border-radius: 12px; 
+            color: #fff; 
+            font-size: 15px; 
+            outline: none; 
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: var(--ice-primary); }
+
+        .btn-primary { 
+            width: 100%; 
+            padding: 14px; 
+            background: linear-gradient(135deg, var(--ice-primary), #0284c7); 
+            border: none; 
+            border-radius: 12px; 
+            color: #031120; 
+            font-size: 16px; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.35);
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(56, 189, 248, 0.5); 
+        }
+
+        /* Hoofdvenster */
+        .app-container { 
+            display: none; 
+            width: 100%; 
+            max-width: 1000px; 
+            height: 90vh; 
+            background: var(--bg-card); 
+            backdrop-filter: blur(25px);
+            border-radius: 24px; 
+            overflow: hidden; 
+            box-shadow: 0 30px 80px rgba(0,0,0,0.8); 
+            border: 1px solid var(--border-ice);
+            grid-template-columns: 320px 1fr; 
+        }
+
+        /* Zijbalk */
+        .sidebar { background-color: var(--bg-sidebar); border-right: 1px solid var(--border-ice); display: flex; flex-direction: column; }
+        .sidebar-header { 
+            padding: 18px 20px; 
+            border-bottom: 1px solid var(--border-ice); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .brand-mini { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 18px; color: var(--ice-primary); }
+        .my-profile-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid var(--border-ice);
+            padding: 5px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .my-profile-btn:hover { background: rgba(56, 189, 248, 0.2); }
+        .my-profile-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center; font-size: 14px; background: #0284c7; }
+        .my-profile-name { font-size: 12px; font-weight: 700; color: var(--ice-glow); }
+
+        .action-bar { padding: 12px 18px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .btn-sm { 
+            flex: 1; 
+            padding: 10px; 
+            background-color: rgba(255,255,255,0.04); 
+            border: 1px solid var(--border-ice); 
+            border-radius: 10px; 
+            color: var(--text-snow); 
+            font-size: 13px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.2s;
+        }
+        .btn-sm:hover { background-color: rgba(56, 189, 248, 0.15); border-color: var(--ice-primary); }
+
+        .chat-list { flex: 1; overflow-y: auto; }
+        .chat-item { 
+            padding: 14px 18px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            cursor: pointer; 
+            border-bottom: 1px solid rgba(255,255,255,0.02); 
+            transition: background 0.15s;
+        }
+        .chat-item:hover, .chat-item.active { background-color: rgba(56, 189, 248, 0.08); }
+        .chat-item.active { border-left: 3px solid var(--ice-primary); }
+        
+        .avatar-img { 
+            width: 44px; 
+            height: 44px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            background: linear-gradient(135deg, #0284c7, var(--ice-primary)); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 20px; 
+            color: #031120;
+            flex-shrink: 0;
+            border: 1px solid var(--border-ice);
+        }
+        
+        .chat-info { flex: 1; min-width: 0; }
+        .chat-name { font-weight: 700; font-size: 14px; color: var(--text-snow); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chat-subtext { font-size: 12px; color: var(--text-frost); margin-top: 2px; }
+
+        .empty-list-notice { 
+            padding: 50px 24px; 
+            text-align: center; 
+            color: var(--text-frost); 
+            font-size: 14px; 
+            line-height: 1.6; 
+        }
+
+        /* Chat Venster */
+        .chat-view { display: flex; flex-direction: column; background-color: rgba(6, 13, 23, 0.85); position: relative; }
+        .chat-header { 
+            padding: 16px 24px; 
+            background-color: var(--bg-sidebar); 
+            border-bottom: 1px solid var(--border-ice); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        }
+        .chat-header-left { display: flex; align-items: center; gap: 12px; }
+        .active-contact-title { font-weight: 800; font-size: 16px; color: var(--text-snow); }
+        .security-badge { font-size: 12px; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 5px 10px; border-radius: 14px; display: flex; align-items: center; gap: 5px; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .messages-container { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+        
+        /* Gegroepeerde berichten */
+        .message-group { display: flex; flex-direction: column; margin-bottom: 12px; }
+        .message-group.me { align-items: flex-end; }
+        .message-group.other { align-items: flex-start; }
+
+        .group-header { font-size: 11px; color: var(--ice-glow); margin-bottom: 4px; padding: 0 4px; font-weight: 700; display: flex; gap: 6px; }
+        .message-group.me .group-header { display: none; }
+        .message-time-subtle { color: var(--text-frost); font-weight: 400; }
+
+        .bubble { 
+            max-width: 65%; 
+            padding: 10px 16px; 
+            font-size: 14.5px; 
+            line-height: 1.45; 
+            word-wrap: break-word; 
+            border-radius: 16px;
+            margin-top: 2px;
+        }
+        .bubble.me { 
+            background: linear-gradient(135deg, #0284c7, #0369a1); 
+            color: white; 
+            border-bottom-right-radius: 4px; 
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.25);
+        }
+        .bubble.other { 
+            background-color: #17273d; 
+            color: var(--text-snow); 
+            border-bottom-left-radius: 4px; 
+            border: 1px solid var(--border-ice);
+        }
+
+        /* Invoer balk & Emojis */
+        .chat-input-bar { 
+            padding: 16px 20px; 
+            background-color: var(--bg-sidebar); 
+            border-top: 1px solid var(--border-ice); 
+            display: flex; 
+            gap: 10px; 
+            align-items: center; 
+            position: relative;
+        }
+        .chat-input-bar input { 
+            flex: 1; 
+            padding: 14px 18px; 
+            background-color: rgba(4, 9, 16, 0.8); 
+            border: 1px solid var(--border-ice); 
+            border-radius: 25px; 
+            color: #fff; 
+            font-size: 14px; 
+            outline: none; 
+            transition: border-color 0.2s;
+        }
+        .chat-input-bar input:focus { border-color: var(--ice-primary); }
+
+        .btn-icon { background: none; border: none; font-size: 22px; cursor: pointer; padding: 6px; border-radius: 50%; transition: transform 0.1s; }
+        .btn-icon:hover { transform: scale(1.15); }
+
+        .btn-send { 
+            padding: 0 24px; 
+            height: 46px;
+            background-color: var(--beak-orange); 
+            border: none; 
+            border-radius: 25px; 
+            color: #08111d; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .btn-send:hover { transform: scale(1.03); background-color: #d97706; }
+
+        /* Emoji Kiezer Paneel */
+        .emoji-picker {
+            display: none;
+            position: absolute;
+            bottom: 75px;
+            left: 20px;
+            width: 320px;
+            background: #0f1c2e;
+            border: 1px solid var(--border-ice);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        .emoji-category-title { font-size: 11px; color: var(--text-frost); margin: 6px 0 4px; font-weight: 700; text-transform: uppercase; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-height: 180px; overflow-y: auto; }
+        .emoji-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; border-radius: 8px; }
+        .emoji-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.2); }
+
+        /* Algemene Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            z-index: 99;
+        }
+        .modal {
+            background: #0f1c2e;
+            border: 1px solid var(--border-ice);
+            border-radius: 20px;
+            padding: 26px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+        }
+        .modal h3 { margin-bottom: 12px; color: var(--text-snow); }
+        .avatar-presets { display: flex; gap: 10px; margin: 12px 0 16px; }
+        .avatar-preset-btn { width: 42px; height: 42px; border-radius: 50%; font-size: 20px; border: 1px solid var(--border-ice); background: #091322; cursor: pointer; }
+        .avatar-preset-btn:hover { border-color: var(--ice-primary); }
+    </style>
+</head>
+<body>
+
+    <!-- INLOGGEN / REGISTREREN SCHERM (OFFICIEEL & SCHOON) -->
+    <div class="auth-card" id="authBox">
+        <div class="brand-logo">🐧</div>
+        <h2>Ping<span class="brand-highlight">U</span>chat</h2>
+        <p>IJskoud beveiligde chats. Niemand leest mee.</p>
+
+        <div class="tabs">
+            <button class="tab-btn active" id="tabInlog" onclick="wisselTab('inlog')">Inloggen</button>
+            <button class="tab-btn" id="tabReg" onclick="wisselTab('reg')">Registreren</button>
+        </div>
+
+        <div class="form-group">
+            <label>Gebruikersnaam</label>
+            <input type="text" id="authGebruiker" placeholder="Kies jouw gebruikersnaam">
+        </div>
+
+        <div class="form-group">
+            <label>Wachtwoord (wordt jouw geheime sleutel)</label>
+            <input type="password" id="authWachtwoord" placeholder="Kies een sterk wachtwoord">
+        </div>
+
+        <div class="form-group" id="avatarOptieVeld" style="display: none;">
+            <label>Profielfoto URL (optioneel, link naar afbeelding)</label>
+            <input type="url" id="authAvatarUrl" placeholder="https://voorbeeld.nl/mijnfoto.png">
+        </div>
+
+        <button class="btn-primary" id="authBtn" onclick="voerAuthUit()">Inloggen op PingUchat</button>
+    </div>
+
+    <!-- HOOFD APPLICATIE SCHERM -->
+    <div class="app-container" id="appBox">
+        <!-- ZIJBALK -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-mini"><span>🐧</span> PingUchat</div>
+                <div class="my-profile-btn" onclick="openMijnProfielModal()" title="Klik om profielfoto aan te passen">
+                    <div id="mijnAvatarWeergave" class="my-profile-avatar">🐧</div>
+                    <span class="my-profile-name" id="labelMijnNaam">@ik</span>
+                </div>
+            </div>
+            
+            <div class="action-bar">
+                <button class="btn-sm" onclick="openContactModal()">+ Vriend</button>
+                <button class="btn-sm" onclick="openGroepModal()">+ Groep</button>
+            </div>
+            
+            <div class="chat-list" id="chatLijst"></div>
+            
+            <div style="padding: 12px 18px; border-top: 1px solid var(--border-ice); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; color: var(--text-frost);">E2EE Beveiligd</span>
+                <button style="background: none; border: none; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer;" onclick="uitloggen()">Uitloggen</button>
+            </div>
+        </div>
+
+        <!-- CHAT WEERGAVE -->
+        <div class="chat-view">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <div id="actieveChatAvatar" class="avatar-img" style="display: none;">🐧</div>
+                    <div>
+                        <div class="active-contact-title" id="chatTitel">Selecteer een chat</div>
+                        <div style="font-size: 11px; color: var(--text-frost);" id="chatOndertitel"></div>
+                    </div>
+                </div>
+                <div class="security-badge">🔒 End-to-End Versleuteld</div>
+            </div>
+
+            <div class="messages-container" id="berichtenLijst">
+                <div style="margin: auto; text-align: center; color: var(--text-frost); font-size: 14px;">
+                    Selecteer of begin een gesprek om te chatten ❄️
+                </div>
+            </div>
+
+            <!-- Emoji Paneel -->
+            <div class="emoji-picker" id="emojiPaneel">
+                <div class="emoji-category-title">Pool & Algemeen</div>
+                <div class="emoji-grid">
+                    <button class="emoji-btn" onclick="voegEmojiToe('🐧')">🐧</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🧊')">🧊</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('❄️')">❄️</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🏔️')">🏔️</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🔒')">🔒</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('✨')">✨</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🔥')">🔥</button>
+                </div>
+                <div class="emoji-category-title">Gezichtjes</div>
+                <div class="emoji-grid">
+                    <button class="emoji-btn" onclick="voegEmojiToe('😀')">😀</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('😂')">😂</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('😎')">😎</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🥳')">🥳</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🤔')">🤔</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🤫')">🤫</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('💀')">💀</button>
+                </div>
+                <div class="emoji-category-title">Gebaren & Harten</div>
+                <div class="emoji-grid">
+                    <button class="emoji-btn" onclick="voegEmojiToe('👍')">👍</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('👋')">👋</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🤝')">🤝</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('❤️')">❤️️</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('💙')">💙</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🚀')">🚀</button>
+                    <button class="emoji-btn" onclick="voegEmojiToe('🎮')">🎮</button>
+                </div>
+            </div>
+
+            <!-- Invoerbalk -->
+            <div class="chat-input-bar">
+                <button class="btn-icon" onclick="toggleEmojiKiezer()" title="Emoji's">😊</button>
+                <input type="text" id="tekstVeld" placeholder="Typ een veilig bericht..." onkeydown="if(event.key==='Enter') verstuurBericht()">
+                <button class="btn-send" onclick="verstuurBericht()">Stuur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PROFIELFOTO WIJZIGEN -->
+    <div class="modal-overlay" id="profielModal">
+        <div class="modal">
+            <h3>Mijn Profielfoto Aanpassen</h3>
+            <p style="font-size: 13px; color: var(--text-frost); margin-bottom: 12px;">Plak een afbeeldings-URL (bijv. van Imgur of Discord) of kies een emoji.</p>
+            
+            <div class="form-group">
+                <label>Afbeelding URL (link naar .jpg / .png)</label>
+                <input type="url" id="profielfotoUrlInvoer" placeholder="https://voorbeeld.nl/foto.jpg">
+            </div>
+
+            <label style="font-size: 13px; color: var(--text-frost);">Of kies een badge:</label>
+            <div class="avatar-presets">
+                <button class="avatar-preset-btn" onclick="kiesSnelleBadge('🐧')">🐧</button>
+                <button class="avatar-preset-btn" onclick="kiesSnelleBadge('👑')">👑</button>
+                <button class="avatar-preset-btn" onclick="kiesSnelleBadge('🕶️')">🕶️</button>
+                <button class="avatar-preset-btn" onclick="kiesSnelleBadge('🚀')">🚀</button>
+                <button class="avatar-preset-btn" onclick="kiesSnelleBadge('🎮')">🎮</button>
+            </div>
+
+            <button class="btn-primary" onclick="slaProfielfotoOp()">Opslaan</button>
+            <button class="btn-sm" style="width: 100%; margin-top: 8px;" onclick="sluitModal('profielModal')">Annuleren</button>
+        </div>
+    </div>
+
+    <!-- MODAL: VRIEND TOEVOEGEN -->
+    <div class="modal-overlay" id="contactModal">
+        <div class="modal">
+            <h3>Vriend Toevoegen</h3>
+            <div class="form-group">
+                <label>Gebruikersnaam van je vriend:</label>
+                <input type="text" id="nieuweVriendNaam" placeholder="bijv. lucas">
+            </div>
+            <button class="btn-primary" onclick="voegContactToe()">Toevoegen</button>
+            <button class="btn-sm" style="width: 100%; margin-top: 8px;" onclick="sluitModal('contactModal')">Annuleren</button>
+        </div>
+    </div>
+
+    <!-- MODAL: GROEP AANMAKEN -->
+    <div class="modal-overlay" id="groepModal">
+        <div class="modal">
+            <h3>Nieuwe Groep Maken</h3>
+            <div class="form-group">
+                <label>Groepsnaam:</label>
+                <input type="text" id="nieuweGroepNaam" placeholder="bijv. Klas 2B of Gaming">
+            </div>
+            <div class="form-group">
+                <label>Groepsafbeelding URL (optioneel):</label>
+                <input type="url" id="nieuweGroepAvatarUrl" placeholder="https://voorbeeld.nl/groep.png">
+            </div>
+            <button class="btn-primary" onclick="maakGroepAan()">Groep Maken</button>
+            <button class="btn-sm" style="width: 100%; margin-top: 8px;" onclick="sluitModal('groepModal')">Annuleren</button>
+        </div>
+    </div>
+
+    <script>
+        let actieveTab = 'inlog';
+        let ingelogdeGebruiker = null;
+        let actieveChat = null;
+        let actieveGeheimeSleutel = null;
+
+        // Lokale opslag (schone start)
+        let accounts = JSON.parse(localStorage.getItem('pingu_accounts')) || {};
+        let contactenLijst = JSON.parse(localStorage.getItem('pingu_contacten')) || {};
+        let databaseBerichten = JSON.parse(localStorage.getItem('pingu_db')) || [];
+
+        function wisselTab(tab) {
+            actieveTab = tab;
+            document.getElementById('tabInlog').classList.toggle('active', tab === 'inlog');
+            document.getElementById('tabReg').classList.toggle('active', tab === 'reg');
+            document.getElementById('authBtn').innerText = tab === 'inlog' ? 'Inloggen op PingUchat' : 'Account Aanmaken';
+            document.getElementById('avatarOptieVeld').style.display = tab === 'reg' ? 'block' : 'none';
+        }
+
+        function voerAuthUit() {
+            let gebruikersnaam = document.getElementById('authGebruiker').value.trim().toLowerCase();
+            let wachtwoord = document.getElementById('authWachtwoord').value;
+            let avatarUrl = document.getElementById('authAvatarUrl')?.value.trim() || '🐧';
+
+            if (!gebruikersnaam || !wachtwoord) {
+                alert("Vul een gebruikersnaam en wachtwoord in!");
+                return;
+            }
+
+            let wachtwoordHash = CryptoJS.SHA256(wachtwoord).toString();
+
+            if (actieveTab === 'reg') {
+                if (accounts[gebruikersnaam]) {
+                    alert("Deze gebruikersnaam is al bezet!");
+                    return;
+                }
+                accounts[gebruikersnaam] = { 
+                    hash: wachtwoordHash, 
+                    avatar: avatarUrl 
+                };
+                contactenLijst[gebruikersnaam] = [];
+                localStorage.setItem('pingu_accounts', JSON.stringify(accounts));
+                localStorage.setItem('pingu_contacten', JSON.stringify(contactenLijst));
+            } else {
+                if (!accounts[gebruikersnaam] || accounts[gebruikersnaam].hash !== wachtwoordHash) {
+                    alert("Onjuiste gebruikersnaam of wachtwoord.");
+                    return;
+                }
+            }
+
+            // Sleutel afleiden
+            actieveGeheimeSleutel = CryptoJS.PBKDF2(wachtwoord, "pingu_salt_random", { keySize: 256/32, iterations: 1000 }).toString();
+            ingelogdeGebruiker = gebruikersnaam;
+
+            document.getElementById('authBox').style.display = 'none';
+            document.getElementById('appBox').style.display = 'grid';
+            document.getElementById('labelMijnNaam').innerText = `@${ingelogdeGebruiker}`;
+
+            werkMijnAvatarWeergaveBij();
+            laadContacten();
+        }
+
+        function werkMijnAvatarWeergaveBij() {
+            let avatarElement = document.getElementById('mijnAvatarWeergave');
+            let mijnAvatar = accounts[ingelogdeGebruiker]?.avatar || '🐧';
+
+            if (mijnAvatar.startsWith('http://') || mijnAvatar.startsWith('https://')) {
+                avatarElement.innerHTML = `<img src="${mijnAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+            } else {
+                avatarElement.innerHTML = mijnAvatar;
+            }
+        }
+
+        function uitloggen() {
+            ingelogdeGebruiker = null;
+            actieveChat = null;
+            actieveGeheimeSleutel = null;
+            document.getElementById('appBox').style.display = 'none';
+            document.getElementById('authBox').style.display = 'block';
+            document.getElementById('authGebruiker').value = '';
+            document.getElementById('authWachtwoord').value = '';
+        }
+
+        function laadContacten() {
+            let lijst = document.getElementById('chatLijst');
+            lijst.innerHTML = "";
+
+            let mijnContacten = contactenLijst[ingelogdeGebruiker] || [];
+
+            if (mijnContacten.length === 0) {
+                lijst.innerHTML = `
+                    <div class="empty-list-notice">
+                        🐧 <strong>Je hebt nog geen contacten!</strong><br><br>
+                        Klik op <strong>+ Vriend</strong> om iemand toe te voegen.
+                    </div>
+                `;
+                document.getElementById('berichtenLijst').innerHTML = '<div style="margin:auto;color:var(--text-frost);font-size:14px;">Selecteer of begin een gesprek ❄️</div>';
+                document.getElementById('chatTitel').innerText = "Geen chat geopend";
+                document.getElementById('chatOndertitel').innerText = "";
+                document.getElementById('actieveChatAvatar').style.display = 'none';
+                return;
+            }
+
+            mijnContacten.forEach(contact => {
+                let div = document.createElement('div');
+                div.className = `chat-item ${actieveChat && actieveChat.id === contact.id ? 'active' : ''}`;
+                div.onclick = () => openChat(contact);
+
+                let avatarHtml = '';
+                let avatarBron = contact.avatar || (accounts[contact.id]?.avatar) || (contact.type === 'groep' ? '👥' : '🐧');
+
+                if (avatarBron.startsWith('http://') || avatarBron.startsWith('https://')) {
+                    avatarHtml = `<img src="${avatarBron}" class="avatar-img" onerror="this.src='';this.innerText='🐧';">`;
+                } else {
+                    avatarHtml = `<div class="avatar-img">${avatarBron}</div>`;
+                }
+
+                div.innerHTML = `
+                    ${avatarHtml}
+                    <div class="chat-info">
+                        <div class="chat-name">${contact.naam}</div>
+                        <div class="chat-subtext">${contact.type === 'groep' ? 'Groep' : 'Direct gesprek'}</div>
+                    </div>
+                `;
+                lijst.appendChild(div);
+            });
+        }
+
+        function openChat(contact) {
+            actieveChat = contact;
+            document.getElementById('chatTitel').innerText = contact.naam;
+            document.getElementById('chatOndertitel').innerText = contact.type === 'groep' ? 'Groepschat' : 'Direct bericht';
+
+            let avatarBron = contact.avatar || (accounts[contact.id]?.avatar) || (contact.type === 'groep' ? '👥' : '🐧');
+            let headerAvatar = document.getElementById('actieveChatAvatar');
+            headerAvatar.style.display = 'flex';
+
+            if (avatarBron.startsWith('http://') || avatarBron.startsWith('https://')) {
+                headerAvatar.innerHTML = `<img src="${avatarBron}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+            } else {
+                headerAvatar.innerHTML = avatarBron;
+            }
+
+            laadContacten();
+            toonBerichten();
+        }
+
+        function verstuurBericht() {
+            let invoer = document.getElementById('tekstVeld');
+            let tekst = invoer.value.trim();
+            if (!tekst || !actieveChat) return;
+
+            let versleuteld = CryptoJS.AES.encrypt(tekst, actieveGeheimeSleutel).toString();
+
+            databaseBerichten.push({
+                kamerId: actieveChat.id,
+                afzender: ingelogdeGebruiker,
+                inhoud: versleuteld,
+                tijdstip: Date.now()
+            });
+
+            localStorage.setItem('pingu_db', JSON.stringify(databaseBerichten));
+            invoer.value = "";
+            document.getElementById('emojiPaneel').style.display = 'none';
+            toonBerichten();
+        }
+
+        function toonBerichten() {
+            if (!actieveChat) return;
+            let scherm = document.getElementById('berichtenLijst');
+            scherm.innerHTML = "";
+
+            let relevanteBerichten = databaseBerichten.filter(b => b.kamerId === actieveChat.id);
+
+            if (relevanteBerichten.length === 0) {
+                scherm.innerHTML = '<div style="margin:auto;color:var(--text-frost);font-size:14px;">Nog geen berichten hier. Verbreek het ijs! ❄️</div>';
+                return;
+            }
+
+            let huidigeGroepDiv = null;
+            let vorigeAfzender = null;
+            let vorigeMinuut = null;
+
+            relevanteBerichten.forEach(b => {
+                let isVanMij = b.afzender === ingelogdeGebruiker;
+                let leesbareTekst = "";
+
+                try {
+                    let bytes = CryptoJS.AES.decrypt(b.inhoud, actieveGeheimeSleutel);
+                    leesbareTekst = bytes.toString(CryptoJS.enc.Utf8);
+                    if (!leesbareTekst) throw new Error();
+                } catch(e) {
+                    leesbareTekst = "🔒 [Versleuteld met afwijkende sleutel]";
+                }
+
+                let datum = new Date(b.tijdstip || Date.now());
+                let minuutSleutel = `${datum.getHours()}:${datum.getMinutes()}`;
+
+                // Groeperen binnen dezelfde minuut door dezelfde persoon
+                if (b.afzender !== vorigeAfzender || minuutSleutel !== vorigeMinuut) {
+                    huidigeGroepDiv = document.createElement('div');
+                    huidigeGroepDiv.className = `message-group ${isVanMij ? 'me' : 'other'}`;
+
+                    let tijdTekst = datum.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    huidigeGroepDiv.innerHTML = `
+                        <div class="group-header">
+                            <span>@${b.afzender}</span>
+                            <span class="message-time-subtle">${tijdTekst}</span>
+                        </div>
+                    `;
+                    scherm.appendChild(huidigeGroepDiv);
+                    vorigeAfzender = b.afzender;
+                    vorigeMinuut = minuutSleutel;
+                }
+
+                let bubbel = document.createElement('div');
+                bubbel.className = `bubble ${isVanMij ? 'me' : 'other'}`;
+                bubbel.innerText = leesbareTekst;
+                huidigeGroepDiv.appendChild(bubbel);
+            });
+
+            scherm.scrollTop = scherm.scrollHeight;
+        }
+
+        // Emoji & Modals beheer
+        function toggleEmojiKiezer() {
+            let paneel = document.getElementById('emojiPaneel');
+            paneel.style.display = paneel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function voegEmojiToe(emoji) {
+            let invoer = document.getElementById('tekstVeld');
+            invoer.value += emoji;
+            invoer.focus();
+        }
+
+        function openContactModal() { document.getElementById('contactModal').style.display = 'flex'; }
+        function openGroepModal() { document.getElementById('groepModal').style.display = 'flex'; }
+        function openMijnProfielModal() { 
+            let mijnAvatar = accounts[ingelogdeGebruiker]?.avatar || '';
+            document.getElementById('profielfotoUrlInvoer').value = mijnAvatar.startsWith('http') ? mijnAvatar : '';
+            document.getElementById('profielModal').style.display = 'flex'; 
+        }
+        function sluitModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function kiesSnelleBadge(badge) {
+            document.getElementById('profielfotoUrlInvoer').value = badge;
+        }
+
+        function slaProfielfotoOp() {
+            let nieuweAvatar = document.getElementById('profielfotoUrlInvoer').value.trim() || '🐧';
+            accounts[ingelogdeGebruiker].avatar = nieuweAvatar;
+            localStorage.setItem('pingu_accounts', JSON.stringify(accounts));
+            werkMijnAvatarWeergaveBij();
+            laadContacten();
+            sluitModal('profielModal');
+        }
+
+        function voegContactToe() {
+            let naam = document.getElementById('nieuweVriendNaam').value.trim().toLowerCase();
+            if (!naam) return;
+
+            if (naam === ingelogdeGebruiker) {
+                alert("Je kunt jezelf niet toevoegen.");
+                return;
+            }
+
+            if (!contactenLijst[ingelogdeGebruiker]) contactenLijst[ingelogdeGebruiker] = [];
+            if (contactenLijst[ingelogdeGebruiker].some(c => c.id === naam)) {
+                alert("Deze vriend staat al in je lijst!");
+                return;
+            }
+
+            let nieuwContact = { id: naam, naam: `@${naam}`, type: 'direct' };
+            contactenLijst[ingelogdeGebruiker].push(nieuwContact);
+            localStorage.setItem('pingu_contacten', JSON.stringify(contactenLijst));
+            
+            document.getElementById('nieuweVriendNaam').value = '';
+            sluitModal('contactModal');
+            openChat(nieuwContact);
+        }
+
+        function maakGroepAan() {
+            let groepsNaam = document.getElementById('nieuweGroepNaam').value.trim();
+            let avatarUrl = document.getElementById('nieuweGroepAvatarUrl').value.trim() || '👥';
+            if (!groepsNaam) return;
+
+            let groepsId = 'groep_' + Date.now();
+            let nieuweGroep = { id: groepsId, naam: groepsNaam, avatar: avatarUrl, type: 'groep' };
+
+            if (!contactenLijst[ingelogdeGebruiker]) contactenLijst[ingelogdeGebruiker] = [];
+            contactenLijst[ingelogdeGebruiker].push(nieuweGroep);
+            localStorage.setItem('pingu_contacten', JSON.stringify(contactenLijst));
+
+            document.getElementById('nieuweGroepNaam').value = '';
+            document.getElementById('nieuweGroepAvatarUrl').value = '';
+            sluitModal('groepModal');
+            openChat(nieuweGroep);
+        }
+    </script>
+</body>
+</html>
